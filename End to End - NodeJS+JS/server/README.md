@@ -15,5 +15,5 @@ firebase emulators:start --inspect-functions --only functions
 ```
 
 
-The API will be available on http://localhost:5001/<Firebase Project name>/<Region>
+The API will be available on http://localhost:5001/FIREBASE_APP_ID/FIREBASE_REGION
 
