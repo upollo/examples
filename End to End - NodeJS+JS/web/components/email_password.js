@@ -119,7 +119,8 @@ export default function EmailPassword(props) {
     } 
 
     // You can pass userInfo such as userid, email and phone to the validate function 
-    // because we aren't logged in yet, we do not have knowledge of this so will send blank
+    // because we aren't logged in yet, we do not have knowledge of this so will send blank if no email
+    // For the point of this demo, we generate an id generated off a hash of the email
 
     let userInfo = null
     if (values.email) {
