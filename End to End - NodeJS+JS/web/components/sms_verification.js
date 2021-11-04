@@ -1,5 +1,6 @@
 import React from "react";
 import {
+    Box,
     Button,
     Container,
     FormControl,
@@ -72,7 +73,7 @@ export default function SMSVerification(props) {
                     container
                     direction="column"
                     justifyContent="center"
-                    alignItems="flex-start"
+                    alignItems="center"
                     spacing={2}
                 >
                     <Grid item>
@@ -102,7 +103,7 @@ export default function SMSVerification(props) {
                     container
                     direction="column"
                     justifyContent="center"
-                    alignItems="flex-start"
+                    alignItems="center"
                     spacing={2}
                 >
                     <Grid item>
@@ -117,8 +118,10 @@ export default function SMSVerification(props) {
                         />
                     </Grid>
                     <Grid item>
+                        <Box mt={2}>
                         <Button type="submit" variant="contained">Verify</Button>
                         <Button onClick={handleSubmitPhoneNumber} variant="text">resend</Button>
+                        </Box>
                     </Grid>
                 </Grid>
             </form>}

@@ -6,14 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "export": "next export"
   },
   "dependencies": {
     "@material-ui/core": "^4.12.3",
     "@material-ui/icons": "^4.11.2",
     "@material-ui/lab": "^4.0.0-alpha.60",
-    "@userwatch/web": "file:../../../web_library",
-    "next": "11.0.1",
+    "@userwatch/web": "^0.0.1",
+    "next": "11.1.1",
     "react": "17.0.2",
     "react-dom": "17.0.2"
   },

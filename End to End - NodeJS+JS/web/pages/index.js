@@ -1,6 +1,5 @@
 import React from 'react';
 import Head from 'next/head'
-import Image from 'next/image'
 import { Container, Grid, Paper, Typography, Tab, Box } from '@material-ui/core'
 import TabContext from '@material-ui/lab/TabContext';
 import TabList from '@material-ui/lab/TabList';
@@ -32,7 +31,7 @@ export default function Home(props) {
 
   return (
    <Container maxWidth="md">
-     <Grid container direction="column" justifyContent="center" alignItems="center">
+     <Grid container direction="column" justifyContent="center" alignItems="center" style={{ minHeight: "100vh" }}>
      <Paper>
        <Box width={800}>
        <TabContext value={tabValue}>

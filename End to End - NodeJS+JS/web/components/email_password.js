@@ -7,13 +7,14 @@ import {
   Input,
   InputAdornment,
   InputLabel,
+  Link,
   TextField,
   Typography,
 } from "@material-ui/core";
 import { Visibility, VisibilityOff } from "@material-ui/icons";
 import React from "react";
 
-import { EmailInvalidReason, EventType, PhoneInvalidReason, ChallengeType } from "@userwatch/web";
+import { EmailInvalidReason, EventType, PhoneInvalidReason, ChallengeType, UserInfo } from "@userwatch/web";
 
 import SMSVerification from "./sms_verification";
 
@@ -26,11 +27,14 @@ export default function EmailPassword(props) {
   const [emailValid, setEmailValid] = React.useState(true);
   const [emailHelperText, setEmailHelperText] = React.useState("yourname@domain.com or +15555555555");
   const [passwordValid, setPasswordValid] = React.useState(true);
-  const [passwordHelperText, setPasswordHelperText] = React.useState("");
+  const [passwordHelperText, setPasswordHelperText] = React.useState("Choose something secure, but memorable");
 
   const [doSmsVerification, setDoSmsVerification] = React.useState(false);
+  const [unableToRegister, setUnableToRegister] = React.useState(false);
   const [challengeID, setChallengeID] = React.useState("");
   const [smsSecretCode, setSmsSecretCode] = React.useState("");
+
+  const [showAccountSharingAd, setShowAccountSharingAd] = React.useState(false);
 
   const handleChange = (prop) => (event) => {
     setValues({ ...values, [prop]: event.target.value });
@@ -67,7 +71,7 @@ export default function EmailPassword(props) {
             );
           } else {
             setEmailValid(true);
-            setEmailHelperText("");
+            setEmailHelperText("Looks good!");
           }
         });
       } else {
@@ -85,7 +89,7 @@ export default function EmailPassword(props) {
             setPasswordHelperText("This password has been leaked");
           } else {
             setPasswordValid(true);
-            setPasswordHelperText("");
+            setPasswordHelperText("Choose something secure, but memorable");
           }
         });
     }
@@ -103,7 +107,7 @@ export default function EmailPassword(props) {
     event.preventDefault();
   };
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = async (event, challengeID, smsSecretCode) => {
     if (event) {
       event.preventDefault();
     }
@@ -117,7 +121,18 @@ export default function EmailPassword(props) {
     // You can pass userInfo such as userid, email and phone to the validate function 
     // because we aren't logged in yet, we do not have knowledge of this so will send blank
 
-    let userwatchToken = await props.userwatch.validate(null, eventType, true);
+    let userInfo = null
+    if (values.email) {
+      const msgUint8 = new TextEncoder().encode(values.email);                           // encode as (utf-8) Uint8Array
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);           // hash the message
+    const hashArray = Array.from(new Uint8Array(hashBuffer));                     // convert buffer to byte array
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+      userInfo = new UserInfo()
+      userInfo.setUserid(hashHex)
+    }
+
+    let userwatchToken = await props.userwatch.validate(userInfo, eventType, true);
     requestJson.userwatchToken = userwatchToken.getValidationtoken()
     requestJson.userwatchSignature = userwatchToken.getValidationsignature()
 
@@ -152,6 +167,8 @@ export default function EmailPassword(props) {
       if (response.status === 403) {
         // Set some error text 
 
+        setUnableToRegister(true)
+
         // This is here only to enable unbanning of a device. 
         // Outside of this example you would not do this
         response.json().then(async (respJson) => {
@@ -164,6 +181,12 @@ export default function EmailPassword(props) {
         response.json().then(async (respJson) => {
           props.deviceIDCallback(respJson.deviceID)
           props.userIDCallback(respJson.userID);
+          setDoSmsVerification(false);
+          if (respJson.accountSharing) {
+            setShowAccountSharingAd(true);
+          } else {
+            setShowAccountSharingAd(false);
+          }
         });
 
       } else if (response.status == 401) {
@@ -172,7 +195,7 @@ export default function EmailPassword(props) {
         response.json().then(async (respJson) => {
           // set DeviceID and userID
           props.deviceIDCallback(respJson.deviceID)
-          props.userIDCallback(respJson.userID);
+          //props.userIDCallback(respJson.userID);
 
           // Randomly pick one of the two types
           // You will probably not want to randomize them
@@ -198,22 +221,31 @@ export default function EmailPassword(props) {
     var [challengeID, challengeSecret] = challengeDetails;
     setChallengeID(challengeID);
     setSmsSecretCode(challengeSecret);
-    handleSubmit();
+    handleSubmit(null, challengeID, challengeSecret);
   };
 
   return (
-    <Container>
-      {!doSmsVerification && !props.userID &&
+    <Container maxWidth="sm">
+      {!unableToRegister && !doSmsVerification && !props.userID &&
       <form onSubmit={handleSubmit}>
         <Grid
           container
           direction="column"
           justifyContent="center"
-          alignItems="flex-start"
+          alignItems="center"
           spacing={2}
         >
-          <Grid item>
+           <Grid 
+          container item
+          direction="row"
+          justifyContent="center"
+          alignItems="center"
+          spacing={2}
+        >
+
+          <Grid item xs={6}>
             <TextField
+            fullWidth
               label="Email or Phone #"
               id="email"
               value={values.email}
@@ -222,15 +254,24 @@ export default function EmailPassword(props) {
               error={!emailValid}
             />
           </Grid>
-          <Grid item>
+          </Grid>
+          <Grid
+          container item
+          direction="row"
+          justifyContent="center"
+          alignItems="center"
+          spacing={2}
+        >
+          <Grid item xs={6}>
             <TextField
+            fullWidth
               label="Password"
               id="password"
               type={values.showPassword ? "text" : "password"}
               value={values.password}
               onChange={handleChange("password")}
-              helperText={passwordHelperText}
-              error={!passwordValid}
+              helperText={props.register ? passwordHelperText : " "}
+              error={!passwordValid && props.register}
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">
@@ -245,29 +286,46 @@ export default function EmailPassword(props) {
                 ),
               }}
             />
+            </Grid>
           </Grid>
           <Grid item>
-            <Button type="submit" variant="contained">Continue</Button>
+            <Button type="submit" variant="contained" color="primary">Continue</Button>
           </Grid>
         </Grid>
       </form>}
 
-      {doSmsVerification && <SMSVerification deviceID={props.deviceID} verifyCallback={smsVerificationCallback} />}
+      {unableToRegister && <Grid container direction="column" justifyContent="center" alignItems="center" spacing={2}>
+        <Grid item>
+          <Typography align="center">For security reasons, you will need to <Link>contact support</Link> to activate your account.</Typography>
+        </Grid>
+        <Grid item>
+          <Typography align="center">If you have already signed up for this service, please try logging into your existing account.</Typography>
+        </Grid>
+        <Grid item>
+          <Typography align="center">When contacting support please quote reference: AL2744TT</Typography>
+        </Grid>
+      </Grid>}
 
-      {!doSmsVerification && props.userID && 
-      <Grid container direction="column" justifyContent="center" alignItems="center">
+      {doSmsVerification && <SMSVerification baseURL={props.baseURL} deviceID={props.deviceID} verifyCallback={smsVerificationCallback} />}
+
+      {!doSmsVerification && !unableToRegister && props.userID && 
+      <Grid container direction="column" justifyContent="center" alignItems="center" spacing={2}>
         <Grid item>
-          <Typography>Logged in!</Typography>
+          <Typography align="center">Logged in!</Typography>
         </Grid>
         <Grid item>
-          <Typography>UserID: {props.userID}</Typography>
+          <Typography  align="center">UserID: {props.userID}</Typography>
         </Grid>
         <Grid item>
-          <Typography>deviceID: {props.deviceID}</Typography>
+          <Typography  align="center">deviceID: {props.deviceID}</Typography>
         </Grid>
         <Grid item>
-            <Button variant="contained" onClick={logout}>Logout</Button>
+            <Button variant="contained" color="primary" onClick={logout}>Logout</Button>
         </Grid>
+
+        {showAccountSharingAd && <Grid item>
+            <Link>Try our team product. Perfect for small teams like yours</Link>
+        </Grid>}
       </Grid>
       }
     </Container>
