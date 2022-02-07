@@ -14,7 +14,7 @@ import (
 var API_ADDR = "api.userwat.ch:443"
 
 // var API_ADDR = "localhost:8081"
-var API_KEY = "???"
+var API_KEY = "ADD_API_KEY_HERE"
 
 func main() {
 
