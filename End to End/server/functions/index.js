@@ -26,31 +26,31 @@ exports.createChallenge = functions.https.onRequest((request, response) => {
   }
 
   // Create userInfo object
-  const userinfo = new userwatch.UserInfo();
+  const userinfo = {};
 
   // Check which challenge type to create
   if (
     request.body.challengeType === userwatch.ChallengeType.CHALLENGE_TYPE_SMS
   ) {
-    userinfo.setUserphone(request.body.phoneNumber);
+    userinfo.userPhone = request.body.phoneNumber;
   }
 
   return uwClient
-      .createChallenge(
-          request.body.challengeType,
-          userinfo,
-          request.body.deviceID,
-          request.body.origin
-      )
-      .then((challengeResp) => {
-        response
-            .status(200)
-            .json({
-              challengeID: challengeResp.getChallengeid(),
-              webauthnCredentials: challengeResp.getWebauthncredentials(),
-            })
-            .send();
-      });
+    .createChallenge(
+      request.body.challengeType,
+      userinfo,
+      request.body.deviceID,
+      request.body.origin
+    )
+    .then((challengeResp) => {
+      response
+        .status(200)
+        .json({
+          challengeID: challengeResp.challengeID,
+          webauthnCredentials: challengeResp.webauthnCredentials,
+        })
+        .send();
+    });
 });
 
 exports.register = functions.https.onRequest((request, response) => {
@@ -61,7 +61,7 @@ exports.login = functions.https.onRequest((request, response) => {
   return exports.validate(request, response, false);
 });
 
-exports.validate = function(request, response, register) {
+exports.validate = function (request, response, register) {
   response.set("Access-Control-Allow-Origin", "*");
   if (request.method === "OPTIONS") {
     // Send response to OPTIONS requests
@@ -77,30 +77,28 @@ exports.validate = function(request, response, register) {
     request.body.challengeID &&
     (request.body.challengeSecret || request.body.challengeWebauthnResponse)
   ) {
-    challengeVerification = new userwatch.ChallengeVerificationRequest();
-    challengeVerification.setChallengeid(request.body.challengeID);
+    challengeVerification = {};
+    challengeVerification.challengeID = request.body.challengeID;
 
     if (request.body.challengeSecret) {
-      challengeVerification.setSecretresponse(request.body.challengeSecret);
-      challengeVerification.setType(userwatch.ChallengeType.CHALLENGE_TYPE_SMS);
+      challengeVerification.secretResponse = request.body.challengeSecret;
+      challengeVerification.type = userwatch.ChallengeType.CHALLENGE_TYPE_SMS;
     }
     // Add webauthnResponse if it exists
     if (request.body.challengeWebauthnResponse) {
       // Turn this back from base64 to bytes
-      challengeVerification.setType(
-          userwatch.ChallengeType.CHALLENGE_TYPE_WEBAUTHN
-      );
-      challengeVerification.setWebauthncredentialresponse();
+      challengeVerification.type =
+        userwatch.ChallengeType.CHALLENGE_TYPE_WEBAUTHN;
     }
   }
 
   const userID = crypto
-      .createHash("sha256")
-      .update(request.body.username)
-      .digest("hex");
+    .createHash("sha256")
+    .update(request.body.username)
+    .digest("hex");
 
-  const userInfo = new userwatch.UserInfo();
-  userInfo.setUserid(userID);
+  const userInfo = {};
+  userInfo.userID = userID;
 
   // This validates that the token and the information therein is valid
   // and performs the validation check with Userwatch servers
@@ -108,73 +106,76 @@ exports.validate = function(request, response, register) {
   // "45d95f9b26ea6a8ff736459ef5aa99de3745c15eb2087770af36523cb434f90a"
 
   return uwClient
-      .validate(
-          request.body.userwatchToken,
-          request.body.userwatchSignature,
-          userInfo,
+    .validate(
+      request.body.userwatchToken,
+      userInfo,
       register ? userwatch.EventType.REGISTER : userwatch.EventType.LOGIN,
       challengeVerification ? challengeVerification : null
-      )
-      .then((result) => {
-        let isAccountSharing = false;
-        result.getFlagList().forEach((flag) => {
-          if (flag.getType() === userwatch.FlagType.ACCOUNT_SHARING) {
-            isAccountSharing = true;
-          }
-        });
+    )
+    .then((result) => {
+      let isAccountSharing = false;
+      result.flag.forEach((flag) => {
+        if (flag.type === userwatch.FlagType.ACCOUNT_SHARING) {
+          isAccountSharing = true;
+        }
+      });
 
-        if (result.getAction() === userwatch.Outcomes.DENY) {
+      if (result.action === userwatch.Outcomes.DENY) {
         // This exists only to allow support for unbanning yourself
         // if you have banned your device
         // In the real world you would not allow this
-          response
-              .status(403)
-              .json({
-                deviceID: result.getDeviceinfo().getDeviceid(),
-                userID: userID,
-              })
-              .send();
-          return;
-        } else if (
-          result.getAction() === userwatch.Outcomes.CHALLENGE &&
+        response
+          .status(403)
+          .json({
+            deviceID: result.deviceInfo.deviceID,
+            userID: userID,
+          })
+          .send();
+        return;
+      } else if (
+        result.action === userwatch.Outcomes.CHALLENGE &&
         !isAccountSharing
-        ) {
+      ) {
         // Return a 401 with a request for a challenge to be completed
-          response
-              .status(401)
-              .json({
-                challenge: true,
-                challengeTypes: result.getSupportedchallengesList(),
-                deviceID: result.getDeviceinfo().getDeviceid(),
-              })
-              .send();
-          return;
-        } else if (
-          result.getAction() === userwatch.Outcomes.CHALLENGE &&
+        response
+          .status(401)
+          .json({
+            challenge: true,
+            challengeTypes: result.supportedChallenges,
+            deviceID: result.deviceInfo.deviceID,
+          })
+          .send();
+        return;
+      } else if (
+        result.action === userwatch.Outcomes.CHALLENGE &&
         isAccountSharing
-        ) {
+      ) {
         // Return a 200 with a flag to show an ad
-          response
-              .status(200)
-              .json({
-                deviceID: result.getDeviceinfo().getDeviceid(),
-                userID: userID,
-                accountSharing: true,
-              })
-              .send();
-          return;
-        } else {
+        response
+          .status(200)
+          .json({
+            deviceID: result.deviceInfo.deviceID,
+            userID: userID,
+            accountSharing: true,
+          })
+          .send();
+        return;
+      } else {
         // Allow
-          response
-              .status(200)
-              .json({
-                deviceID: result.getDeviceinfo().getDeviceid(),
-                userID: userID,
-              })
-              .send();
-          return;
-        }
-      });
+        response
+          .status(200)
+          .json({
+            deviceID: result.deviceInfo.deviceID,
+            userID: userID,
+          })
+          .send();
+        return;
+      }
+    })
+    .catch((err) => {
+      console.error("unexpected error validating", err);
+      throw err;
+    });
 
   // TODO report success of registration or login
 };
@@ -195,8 +196,7 @@ exports.listDevices = functions.https.onRequest((request, response) => {
   // This is for demo purposes only!
   // You should never trust data like this directly from the client
   return uwClient.getDeviceList(request.body.userID).then((result) => {
-    const resultObj = result.toObject();
-    response.status(200).json(resultObj).send();
+    response.status(200).json(result).send();
   });
 });
 
@@ -217,10 +217,10 @@ exports.blockDevice = functions.https.onRequest((request, response) => {
 
   // If userID is not given, this will block globally
   return uwClient
-      .blockDevice(request.body.deviceID, request.body.userID)
-      .then((result) => {
-        response.status(200).json(result).send();
-      });
+    .blockDevice(request.body.deviceID, request.body.userID)
+    .then((result) => {
+      response.status(200).json(result).send();
+    });
 });
 
 exports.unblockDevice = functions.https.onRequest((request, response) => {
@@ -240,8 +240,8 @@ exports.unblockDevice = functions.https.onRequest((request, response) => {
 
   // If userID is not given, this will unblock globally
   return uwClient
-      .unblockDevice(request.body.deviceID, request.body.userID)
-      .then((result) => {
-        response.status(200).json(result).send();
-      });
+    .unblockDevice(request.body.deviceID, request.body.userID)
+    .then((result) => {
+      response.status(200).json(result).send();
+    });
 });
