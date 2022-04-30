@@ -8,7 +8,7 @@ CORS(app)
 
 
 privateApiKey = "YOUR_PRIVATE_API_KEY"
-userwatchClient = userwatch.Userwatch(privateApiKey)
+userwatchClient = userwatch.Userwatch(privateApiKey, {})
 
 
 @app.route("/")
@@ -37,3 +37,6 @@ def register():
         status = 401
 
     return Response(status=status, response="{}", content_type="application/json")
+
+if __name__ == "__main__":
+    app.run()

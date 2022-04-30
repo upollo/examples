@@ -16,9 +16,9 @@ python3 -m pip install -r requirements.txt
 
 Secondly, add in your Userwatch private api key in `app.py`
 
-
 Thirdly, run the server.
+
 ```
 # run dev server
-flask run --port 8001
+python3 app.py
 ```
