@@ -4,21 +4,16 @@ This example shows how you can use userwatch with python to identify users befor
 
 ## getting started
 
-Firstly install the dependencies
-
 ```
 # select the virtual env
 python3 -m venv venv
 source venv/bin/activate
 # install dependencies
 python3 -m pip install -r requirements.txt
-```
 
-Secondly, add in your Userwatch private api key in `app.py`
+# optional: If you need to install a new test version of userwatch-python from test pypi.
+python3 -m pip install -i https://test.pypi.org/simple/ userwatch-python==0.0.5
 
-Thirdly, run the server.
-
-```
 # run dev server
-python3 app.py
+python3 app.py --port 8001
 ```

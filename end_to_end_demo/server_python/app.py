@@ -2,13 +2,15 @@ from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 from userwatch import userwatch
 from userwatch import userwatch_public_pb2
+import getopt
+import sys
 
 app = Flask(__name__)
 CORS(app)
 
 
 privateApiKey = "YOUR_PRIVATE_API_KEY"
-userwatchClient = userwatch.Userwatch(privateApiKey, {})
+userwatchClient = userwatch.Userwatch(privateApiKey)
 
 
 @app.route("/")
@@ -38,5 +40,21 @@ def register():
 
     return Response(status=status, response="{}", content_type="application/json")
 
+def usage():
+    print('app.py --port <port>')
+
 if __name__ == "__main__":
-    app.run()
+    port=5000
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "hp:", ["port="])
+    except getopt.GetoptError:
+        usage()
+        sys.exit(2)
+    for opt, arg in opts:
+      if opt == '-h':
+         usage()
+         sys.exit()
+      elif opt in ("-p", "--port"):
+         port = arg
+    
+    app.run(port=port)
