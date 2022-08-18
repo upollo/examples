@@ -8,6 +8,6 @@ Jinja2==3.1.2
 MarkupSafe==2.1.1
 protobuf==3.20.1
 six==1.16.0
-userwatch-python==0.0.3
+userwatch-python==0.0.4
 Werkzeug==2.1.2
 zipp==3.8.0
