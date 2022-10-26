@@ -1,6 +1,6 @@
 module github.com/upollo/examples/end_to_end_demo/server_go
 
-go 1.17
+go 1.19
 
 require (
 	github.com/Userwatch/userwatch-go v0.1.0
