@@ -1,56 +1,83 @@
-import React from 'react';
-import Head from 'next/head'
-import { Container, Grid, Paper, Typography, Tab, Box } from '@material-ui/core'
-import TabContext from '@material-ui/lab/TabContext';
-import TabList from '@material-ui/lab/TabList';
-import TabPanel from '@material-ui/lab/TabPanel';
-import EmailPassword from '../components/email_password';
-import DeviceList from '../components/device_list';
+import React from "react";
+import { Container, Grid } from "@material-ui/core";
+import { useTheme } from "@material-ui/core/styles";
+import useMediaQuery from "@material-ui/core/useMediaQuery";
+import AuthForm from "../components/auth_form";
 
-import { EventType, UserInfo } from "@userwatch/web";
-import { FUNCTIONS_URL } from '../userwatch.config';
+import { EventType, UserInfo } from "@upollo/web";
 
-// CHANGE ME
-const functionsBaseUrl = FUNCTIONS_URL
+const functionsBaseUrl = process.env.API_URL;
 
 export default function Home(props) {
-  const [tabValue, setTabValue] = React.useState("1");
-  const [userID, setUserID] = React.useState("");
-  const [deviceID, setDeviceID] = React.useState("");
+  const [userId, setUserId] = React.useState("");
+  const [deviceId, setDeviceId] = React.useState("");
 
-  const handleTabChange = (event, newValue) => {
-    setTabValue(newValue);
+  const doAuthComplete = (userId, deviceId, register, naughty) => {
+    var userInfo = { userId: userId };
+    props.upollo.track(userInfo, EventType.EVENT_TYPE_LOGIN_SUCCESS);
+    setUserId(userId);
+    setDeviceId(deviceId);
+    console.log(
+      "Auth complete!\n" +
+        "  uid=" +
+        userId +
+        "\n" +
+        "  did=" +
+        deviceId +
+        "\n" +
+        (register ? "  register" : "  login") +
+        (naughty ? " naughty" : " nice")
+    );
+    let destination = "offer/";
+    if (register) {
+      destination += naughty ? "paid" : "free";
+    } else {
+      destination += naughty ? "team" : "success";
+    }
+    window.location.href += destination;
   };
 
-  const updateUserID = (userID) => {
-    var userInfo = new UserInfo();
-    userInfo.setUserid(userID);
-    props.userwatch.validate(userInfo, EventType.LOGIN_SUCCESS, true);
-    setUserID(userID);
-  }
+  const theme = useTheme();
 
   return (
-   <Container maxWidth="md">
-     <Grid container direction="column" justifyContent="center" alignItems="center" style={{ minHeight: "100vh" }}>
-     <Paper>
-       <Box width={800}>
-       <TabContext value={tabValue}>
-  <TabList onChange={handleTabChange}
-    indicatorColor="primary"
-    textColor="primary"
-    centered
-  >
-    <Tab label="Register" value="1"/>
-    <Tab label="Login" value="2"/>
-    <Tab label="Device List" value="3"/>
-  </TabList>
-  <TabPanel value="1"><EmailPassword baseURL={functionsBaseUrl} userwatch={props.userwatch} deviceIDCallback={setDeviceID} deviceID={deviceID} userIDCallback={updateUserID} userID={userID} register={true}/></TabPanel>
-  <TabPanel value="2"><EmailPassword baseURL={functionsBaseUrl} userwatch={props.userwatch} deviceIDCallback={setDeviceID} deviceID={deviceID} userIDCallback={updateUserID} userID={userID}/></TabPanel>
-  <TabPanel value="3"><DeviceList baseURL={functionsBaseUrl} userID={userID}/></TabPanel>
-  </TabContext>
-  </Box>
-</Paper>
-</Grid>
-   </Container>
-  )
+    <Container maxWidth="lg">
+      <Grid
+        container
+        justifyContent="center"
+        alignItems="center"
+        spacing={2}
+        style={{
+          minHeight: useMediaQuery(theme.breakpoints.up("md")) ? "100vh" : "0",
+        }}
+      >
+        {/* TODO: Should be using sx rather than style, figure out why it's not working. */}
+        <Grid
+          item
+          xs={12}
+          md={6}
+          style={{
+            backgroundImage: "url(/images/saas-register.png)",
+            backgroundPosition: "center",
+            backgroundSize: "contain",
+            backgroundRepeat: "no-repeat",
+            height: useMediaQuery(theme.breakpoints.up("md"))
+              ? "734px"
+              : "128px",
+          }}
+        />
+        <Grid item xs={12} md={6}>
+          <AuthForm
+            baseURL={functionsBaseUrl}
+            upollo={props.upollo}
+            callback={doAuthComplete}
+            deviceId={deviceId}
+            userId={userId}
+            register={true}
+            logo="/images/saas-company.png"
+            logoAlt="btect"
+          />
+        </Grid>
+      </Grid>
+    </Container>
+  );
 }

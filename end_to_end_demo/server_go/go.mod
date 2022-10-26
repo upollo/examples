@@ -1,4 +1,4 @@
-module github.com/userwatch/uw1/examples/end_to_end_demo/server_go
+module github.com/upollo/examples/end_to_end_demo/server_go
 
 go 1.17
 
@@ -18,3 +18,5 @@ require (
 	google.golang.org/grpc v1.44.0 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
 )
+
+// replace github.com/Userwatch/userwatch-go => /Users/stephen/projects/uw/userwatch-go

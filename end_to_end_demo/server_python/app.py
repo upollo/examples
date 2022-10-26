@@ -1,41 +1,42 @@
+from dotenv import load_dotenv
 from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 import grpc
-from userwatch import userwatch
-from userwatch import userwatch_public_pb2
+from upollo import upollo, upollo_public_pb2
 import getopt
+import os
 import sys
 
 app = Flask(__name__)
 CORS(app)
 
+load_dotenv()
 
-privateApiKey = "YOUR_PRIVATE_API_KEY"
-userwatchClient = userwatch.Userwatch(privateApiKey)
-
+options = {"url": os.getenv('UPOLLO_API_URL')} if os.getenv('UPOLLO_API_URL') else {}
+upolloClient = upollo.Upollo(os.getenv('UPOLLO_API_KEY'), options)
 
 @app.route("/")
 def pythonExample():
-    return "<p>Welcome to the Userwatch Python example.</p>"
+    return "<p>Welcome to the Upollo Python example.</p>"
 
 
 @app.route('/register', methods=['POST'])
 def register():
     jsonRequest = request.json
     username = jsonRequest["username"]
-    userwatchToken = jsonRequest["userwatchToken"]
+    upolloToken = jsonRequest["upolloToken"]
 
     status = 200
 
     try:
-        validateResponse = userwatchClient.verify(
-            userwatchToken,
-            userwatch_public_pb2.UserInfo(user_name=username)
+        validateResponse = upolloClient.verify(
+            upolloToken,
+            upollo_public_pb2.UserInfo(user_name=username)
         )
-        if validateResponse.action == userwatch_public_pb2.OUTCOME_DENY:
+        if validateResponse.action == upollo_public_pb2.OUTCOME_DENY:
             print("deny returning 403")
             status = 403
-        if validateResponse.action == userwatch_public_pb2.OUTCOME_CHALLENGE:
+        if validateResponse.action == upollo_public_pb2.OUTCOME_CHALLENGE:
             print("challenge returning 401")
             status = 401
 
@@ -66,6 +67,6 @@ if __name__ == "__main__":
             usage()
             sys.exit()
         elif opt in ("-p", "--port"):
-            port = arg
+            port = arg   
 
     app.run(port=port)
