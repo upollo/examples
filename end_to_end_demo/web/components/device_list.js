@@ -17,7 +17,7 @@ export default function DeviceList(props) {
   const [deviceList, setDeviceList] = React.useState([]);
   const [respJson, setRespJson] = React.useState({});
 
-  React.useMemo(async () => {
+  React.useEffect(async () => {
     if (props.userId) {
       var response = await fetch(props.baseURL + "listDevices", {
         method: "POST",

@@ -110,12 +110,9 @@ exports.validate = function(request, response, register) {
           challengeVerification ? challengeVerification : null
       )
       .then((result) => { // Handle the AnalysisResponse
-        let isAccountSharing = false;
-        result.flags.forEach((flag) => {
-          if (flag.type === upollo.FlagType.ACCOUNT_SHARING) {
-            isAccountSharing = true;
-          }
-        });
+        const isAccountSharing = result.flags.some(
+            (flag) => flag.type === upollo.FlagType.ACCOUNT_SHARING
+        );
 
         if (result.action === upollo.Outcome.OUTCOME_DENY) {
         // This exists only to allow support for unbanning yourself
