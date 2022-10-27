@@ -1,26 +1,30 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 
-	userwatchgo "github.com/Userwatch/userwatch-go"
+	upollo "github.com/Userwatch/userwatch-go"
 
 	"github.com/gorilla/handlers"
 )
 
-var API_ADDR = "api.userwat.ch:443"
-
-// var API_ADDR = "localhost:8081"
-var API_KEY = "ADD_API_KEY_HERE"
+var apiKey = flag.String("api-key", "", "Upollo API key.")
+var apiUrl = flag.String("api-url", "", "Upollo API URL.")
 
 func main() {
-
-	client, err := userwatchgo.NewClientBuilder(API_KEY).WithUrl(API_ADDR).Build()
+	flag.Parse()
+	clientBuilder := upollo.NewClientBuilder(*apiKey)
+	if *apiUrl != "" {
+		clientBuilder = clientBuilder.WithUrl(*apiUrl)
+	}
+	// clientBuilder = clientBuilder.WithRequireTls(false)
+	client, err := clientBuilder.Build()
 	if err != nil {
-		log.Panicf("unable to create userwatchgo client %v", err)
+		log.Panicf("unable to create upollo client %v", err)
 	}
 
 	web := Web{
@@ -31,7 +35,8 @@ func main() {
 	http.HandleFunc("/listDevices", web.HandleDeviceList)
 	http.HandleFunc("/createChallenge", web.HandleCreateChallenge)
 
-	port := "8080"
+	port := "8001"
 	fmt.Println("listening on port " + port)
-	http.ListenAndServe(":"+port, handlers.LoggingHandler(os.Stdout, http.DefaultServeMux))
+	err = http.ListenAndServe(":"+port, handlers.LoggingHandler(os.Stdout, http.DefaultServeMux))
+	log.Fatal(err)
 }

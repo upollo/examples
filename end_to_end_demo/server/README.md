@@ -1,19 +1,23 @@
+# Example server in Node.js
+
 ## Getting Started
 
-First, install the dependencies:
+Firstly, install the dependencies:
 
 ```bash
+cd functions
 npm install
 ```
 
-Secondly set your Userwatch private api key in functions/index.js
+Secondly, set your Upollo private API key in `.env`. See our [Quickstart guide](https://upollo.ai/docs/quick-start#sign-up) on how to get an API key.
 
-Thirdly, run the development server:
+Thirdly, set the name of your Firebase project in `.firebaserc`.
+
+Finally, run the development server:
 
 ```bash
-firebase emulators:start --inspect-functions --only functions
+cd functions
+npm run serve
 ```
 
-
-The API will be available on http://localhost:5001/<Firebase Project name>/<Region>
-
+The development server API will be available on `http://localhost:5001/<Firebase Project name>/<Region>`
