@@ -8,30 +8,38 @@ import (
 
 	"github.com/thoas/go-funk"
 
-	upollo "github.com/Userwatch/userwatch-go"
+	upollo "github.com/upollo/userwatch-go"
 )
 
 type Web struct {
 	uwclient upollo.ShepherdClient
 }
 
-type RegisterRequest struct {
-	Username           string `json:"username"`
-	UpolloToken     string `json:"upolloToken"`
-	ChallengeID        string `json:"challengeID,omitempty"`
-	ChallengeSecret    string `json:"challengeSecret,omitempty"`
-	ChallengeWebauthn  string `json:"challengeWebauthnResponse,omitempty"`
-}
-
-type RegisterResponse struct {
-	DeviceID       string                      `json:"deviceID"`
-	UserId         string                      `json:"userID,omitempty"`
-	Challenge      bool                        `json:"challenge,omitempty"`
-	AccountSharing bool                        `json:"accountSharing,omitempty"`
-	ChallengeTypes []upollo.ChallengeType `json:"challengeTypes,omitempty"`
+func (w *Web) HandleLogin(rw http.ResponseWriter, r *http.Request) {
+	HandleRegisterOrLogin(w, rw, r, false /* register */)
 }
 
 func (w *Web) HandleRegister(rw http.ResponseWriter, r *http.Request) {
+	HandleRegisterOrLogin(w, rw, r, true /* register */)
+}
+
+type RegisterRequest struct {
+	UserEmail         string `json:"userEmail"`
+	EventToken        string `json:"eventToken"`
+	ChallengeId       string `json:"challengeId,omitempty"`
+	ChallengeSecret   string `json:"challengeSecret,omitempty"`
+	ChallengeWebauthn string `json:"challengeWebauthnResponse,omitempty"`
+}
+
+type RegisterResponse struct {
+	DeviceId       string                 `json:"deviceId"`
+	UserId         string                 `json:"userId,omitempty"`
+	Challenge      bool                   `json:"challenge,omitempty"`
+	Upsell         bool                   `json:"upsell,omitempty"`
+	ChallengeTypes []upollo.ChallengeType `json:"challengeTypes,omitempty"`
+}
+
+func HandleRegisterOrLogin(w *Web, rw http.ResponseWriter, r *http.Request, register bool) {
 	ctx := r.Context()
 	rw.Header().Set("Access-Control-Allow-Origin", "*")
 	if r.Method == "OPTIONS" {
@@ -46,30 +54,30 @@ func (w *Web) HandleRegister(rw http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&request)
 
 	var challengeVerification *upollo.ChallengeVerificationRequest
-	if request.ChallengeID != "" && request.ChallengeSecret != "" {
+	if request.ChallengeId != "" && request.ChallengeSecret != "" {
 		challengeVerification = &upollo.ChallengeVerificationRequest{
-			ChallengeID:    request.ChallengeID,
+			ChallengeId:    request.ChallengeId,
 			SecretResponse: request.ChallengeSecret,
 			Type:           upollo.ChallengeType_CHALLENGE_TYPE_SMS,
 		}
-	} else if request.ChallengeID != "" && request.ChallengeWebauthn != "" {
+	} else if request.ChallengeId != "" && request.ChallengeWebauthn != "" {
 		challengeB64, err := base64.StdEncoding.DecodeString(request.ChallengeWebauthn)
 		if err != nil {
 			log.Printf("Unable to decode webauthn challenge as b64, %v", err)
 		}
 		if challengeB64 != nil {
 			challengeVerification = &upollo.ChallengeVerificationRequest{
-				ChallengeID:                request.ChallengeID,
+				ChallengeId:                request.ChallengeId,
 				WebauthnCredentialResponse: challengeB64,
 				Type:                       upollo.ChallengeType_CHALLENGE_TYPE_WEBAUTHN,
 			}
 		}
 	}
 
-	result, err := w.uwclient.Validate(ctx, &upollo.ValidationRequest{
-		ValidationToken: request.UpolloToken,
+	result, err := w.uwclient.Verify(ctx, &upollo.VerifyRequest{
+		EventToken: request.EventToken,
 		Userinfo: &upollo.UserInfo{
-			UserID: request.Username,
+			UserEmail: request.UserEmail,
 		},
 		ChallengeVerification: challengeVerification,
 	})
@@ -78,23 +86,29 @@ func (w *Web) HandleRegister(rw http.ResponseWriter, r *http.Request) {
 		log.Printf("invalid response from validate %v", err)
 		rw.WriteHeader(http.StatusInternalServerError)
 	} else {
-		status := http.StatusOK
-		isAccountSharing := funk.Contains(result.Flag, func(flag *upollo.Flag) bool {
+		isAccountSharing := funk.Contains(result.Flags, func(flag *upollo.Flag) bool {
 			return flag.Type == upollo.FlagType_ACCOUNT_SHARING
 		})
+		hadPreviousTrial := funk.Contains(result.Flags, func(flag *upollo.Flag) bool {
+			return flag.Type == upollo.FlagType_MULTIPLE_ACCOUNTS
+		})
+		// A previous trial was detected while the user was registering, or account sharing was
+		// detected while the user was logging in.
+		upsell := (register && hadPreviousTrial) || (!register && isAccountSharing)
 		response := RegisterResponse{
-			DeviceID:       result.DeviceInfo.DeviceID,
-			UserId:         result.UserInfo.UserID,
-			AccountSharing: isAccountSharing,
-			Challenge:      result.Action == upollo.Outcome_CHALLENGE,
+			DeviceId:       result.DeviceInfo.DeviceId,
+			UserId:         result.UserInfo.UserId,
+			Upsell:         upsell,
+			Challenge:      result.Action == upollo.Outcome_OUTCOME_CHALLENGE,
 			ChallengeTypes: result.SupportedChallenges,
 		}
 
-		if result.Action == upollo.Outcome_DENY {
+		status := http.StatusOK
+		if result.Action == upollo.Outcome_OUTCOME_DENY {
 			status = http.StatusForbidden
-		} else if result.Action == upollo.Outcome_CHALLENGE && !isAccountSharing {
+		} else if result.Action == upollo.Outcome_OUTCOME_CHALLENGE && !(isAccountSharing || hadPreviousTrial) {
 			status = http.StatusUnauthorized
-		} else if result.Action == upollo.Outcome_CHALLENGE && isAccountSharing {
+		} else if result.Action == upollo.Outcome_OUTCOME_CHALLENGE && (isAccountSharing || hadPreviousTrial) {
 			status = http.StatusOK
 		}
 
@@ -123,9 +137,9 @@ func (w *Web) HandleDeviceList(rw http.ResponseWriter, r *http.Request) {
 
 type CreateChallengeRequest struct {
 	Type        upollo.ChallengeType `json:"challengeType,omitempty"`
-	PhoneNumber string                    `json:"phoneNumber"`
-	DeviceID    string                    `json:"deviceID,omitempty"`
-	Origin      string                    `json:"origin,omitempty"`
+	PhoneNumber string               `json:"phoneNumber"`
+	DeviceId    string               `json:"deviceId,omitempty"`
+	Origin      string               `json:"origin,omitempty"`
 }
 
 func (w *Web) HandleCreateChallenge(rw http.ResponseWriter, r *http.Request) {
@@ -135,7 +149,7 @@ func (w *Web) HandleCreateChallenge(rw http.ResponseWriter, r *http.Request) {
 
 	response, err := w.uwclient.CreateChallenge(ctx, &upollo.CreateChallengeRequest{
 		Type:     request.Type,
-		DeviceID: request.DeviceID,
+		DeviceId: request.DeviceId,
 		Origin:   request.Origin,
 		Userinfo: &upollo.UserInfo{
 			UserPhone: request.PhoneNumber,

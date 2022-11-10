@@ -13,6 +13,7 @@ import { CheckCircle } from "@material-ui/icons";
 import { useTheme } from "@material-ui/core/styles";
 import useMediaQuery from "@material-ui/core/useMediaQuery";
 import { BrandedHeader, WideRow } from "../../components/helpers";
+import useLocalStorageState from "use-local-storage-state";
 
 // Page presenting the user with some type of offer, as specified in the url path.
 //
@@ -26,7 +27,9 @@ export default function GiveOffer(props) {
   const router = useRouter();
   const { offer } = router.query;
 
-  const sellingPoints = [
+  const [companyName, setCompanyName] = useLocalStorageState("companyName");
+
+  let sellingPoints = [
     "Email Comments and Attachments",
     "Future Recurring Tasks on Calendar",
     "Drag and Drop Attachments",
@@ -34,6 +37,14 @@ export default function GiveOffer(props) {
     "Natural Language Processing",
     "Firefox and Safari Extensions",
   ];
+
+  // Use the company name to tailor the selling points.
+  if (companyName) {
+    sellingPoints = [
+      "Give your workflow a boost at " + companyName + "!",
+    ].concat(sellingPoints);
+  }
+
   const whatsNew = [
     "Natural Language Processing",
     "Firefox and Safari Extensions",
@@ -74,7 +85,7 @@ export default function GiveOffer(props) {
             <Offer
               header="Three Months Free Trial"
               copy="As a special welcome offer, we're offering your first three months for free!"
-              thing="Plus Package"
+              packageName="Plus Package"
               sellingPoints={sellingPoints}
               callToAction="Accept Offer"
             />
@@ -83,7 +94,7 @@ export default function GiveOffer(props) {
             <Offer
               header="$2 for Two Months"
               copy="Looks like you've already redeemed a trial. Try out again for a special price"
-              thing="Deluxe Package"
+              packageName={companyName ? "Corporate Package" : "Deluxe Package"}
               sellingPoints={sellingPoints}
               callToAction="Choose Plan"
             />
@@ -92,7 +103,7 @@ export default function GiveOffer(props) {
             <Offer
               header="Upgrade to Teams"
               copy="Tired of sharing? Get a better experience. Choose a Team plan and bring the team along"
-              thing="Team Plan"
+              packageName="Team Plan"
               sellingPoints={["$5 per person"].concat(sellingPoints)}
               callToAction="Choose Plan"
             />
@@ -101,7 +112,7 @@ export default function GiveOffer(props) {
             <Offer
               header="Welcome Back"
               copy="Check out some of the great improvements we've made in the last month"
-              thing="What's new"
+              packageName="What's new"
               sellingPoints={whatsNew}
               callToAction="Continue"
             />
@@ -129,7 +140,7 @@ function Offer(props) {
         <div>{props.copy}</div>
       </WideRow>
       <WideRow>
-        <h2>{props.thing}</h2>
+        <h2>{props.packageName}</h2>
         <List>
           {props.sellingPoints.map((point, idx) => {
             return (

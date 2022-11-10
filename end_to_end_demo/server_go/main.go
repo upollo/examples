@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"os"
 
-	upollo "github.com/Userwatch/userwatch-go"
+	upollo "github.com/upollo/userwatch-go"
 
 	"github.com/gorilla/handlers"
 )
@@ -32,6 +32,7 @@ func main() {
 	}
 
 	http.HandleFunc("/register", web.HandleRegister)
+	http.HandleFunc("/login", web.HandleLogin)
 	http.HandleFunc("/listDevices", web.HandleDeviceList)
 	http.HandleFunc("/createChallenge", web.HandleCreateChallenge)
 

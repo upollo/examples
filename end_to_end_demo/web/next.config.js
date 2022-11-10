@@ -15,6 +15,7 @@ const nextConfig = {
     config.plugins.push(new webpack.EnvironmentPlugin(myEnv));
     return config;
   },
+  trailingSlash: true,
 };
 
 module.exports = nextConfig;

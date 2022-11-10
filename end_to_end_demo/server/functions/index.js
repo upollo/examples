@@ -1,16 +1,14 @@
 const functions = require("firebase-functions");
 
-const crypto = require("crypto");
-
 const admin = require("firebase-admin");
 admin.initializeApp();
 
 require("dotenv").config();
 const upollo = require("@upollo/node");
-const UPOLLO_API_KEY = process.env.UPOLLO_API_KEY;
+const UPOLLO_SECRET_API_KEY = process.env.UPOLLO_SECRET_API_KEY;
 const UPOLLO_API_OPTIONS = process.env.UPOLLO_API_URL ?
     {url: process.env.UPOLLO_API_URL} : {};
-const upClient = new upollo.Upollo(UPOLLO_API_KEY, UPOLLO_API_OPTIONS);
+const upClient = new upollo.Upollo(UPOLLO_SECRET_API_KEY, UPOLLO_API_OPTIONS);
 
 exports.createChallenge = functions.https.onRequest((request, response) => {
   // This should be set to allow your servers rather than any URL
@@ -92,20 +90,15 @@ exports.validate = function(request, response, register) {
     }
   }
 
-  const userId = crypto
-      .createHash("sha256")
-      .update(request.body.username)
-      .digest("hex");
-
   const userInfo = {};
-  userInfo.userId = userId;
+  userInfo.userEmail = request.body.userEmail;
 
   // This validates that the token and the information therein is valid
   // and performs the validation check with Upollo servers
 
   return upClient
       .verify(
-          request.body.upolloToken,
+          request.body.eventToken,
           userInfo,
           challengeVerification ? challengeVerification : null
       )
@@ -113,58 +106,36 @@ exports.validate = function(request, response, register) {
         const isAccountSharing = result.flags.some(
             (flag) => flag.type === upollo.FlagType.ACCOUNT_SHARING
         );
+        const hadPreviousTrial = result.flags.some(
+            (flag) => flag.type === upollo.FlagType.MULTIPLE_ACCOUNTS
+        );
+
+        let status = 200;
+        const json = {
+          deviceId: result.deviceInfo.deviceId,
+          userId: result.userInfo.userId,
+        };
 
         if (result.action === upollo.Outcome.OUTCOME_DENY) {
-        // This exists only to allow support for unbanning yourself
-        // if you have banned your device
-        // In the real world you would not allow this
-          response
-              .status(403)
-              .json({
-                deviceId: result.deviceInfo.deviceId,
-                userId: userId,
-              })
-              .send();
-          return;
+          // This exists only to allow support for unbanning yourself
+          // if you have banned your device
+          // In the real world you would not allow this
+          status = 403;
         } else if (
           result.action === upollo.Outcome.OUTCOME_CHALLENGE &&
-        !isAccountSharing
-        ) {
-        // Return a 401 with a request for a challenge to be completed
-          response
-              .status(401)
-              .json({
-                challenge: true,
-                challengeTypes: result.supportedChallenges,
-                deviceId: result.deviceInfo.deviceId,
-              })
-              .send();
-          return;
-        } else if (
-          result.action === upollo.Outcome.OUTCOME_CHALLENGE &&
-        isAccountSharing
-        ) {
-        // Return a 200 with a flag to show an ad
-          response
-              .status(200)
-              .json({
-                deviceId: result.deviceInfo.deviceId,
-                userId: userId,
-                accountSharing: true,
-              })
-              .send();
-          return;
-        } else {
-        // Allow
-          response
-              .status(200)
-              .json({
-                deviceId: result.deviceInfo.deviceId,
-                userId: userId,
-              })
-              .send();
-          return;
+        !(isAccountSharing || hadPreviousTrial) ) {
+          // Return a 401 with a request for a challenge to be completed
+          status = 401;
+          json.challenge = true;
+          json.challengeTypes = result.supportedChallenges;
         }
+        // If it's a register request, upsell if they have had a previous trail.
+        // If it's a login request, upsell if they are account sharing.
+        json.upsell = register ? hadPreviousTrial : isAccountSharing;
+        response
+            .status(status)
+            .json(json)
+            .send();
       })
       .catch((err) => {
         console.error("unexpected error validating", err);
