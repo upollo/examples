@@ -3,9 +3,9 @@ module github.com/upollo/examples/end_to_end_demo/server_go
 go 1.19
 
 require (
-	github.com/Userwatch/userwatch-go v0.1.0
 	github.com/gorilla/handlers v1.5.1
 	github.com/thoas/go-funk v0.9.1
+	github.com/upollo/userwatch-go v0.2.2
 )
 
 require (
@@ -19,4 +19,4 @@ require (
 	google.golang.org/protobuf v1.27.1 // indirect
 )
 
-// replace github.com/Userwatch/userwatch-go => /Users/stephen/projects/uw/userwatch-go
+// replace github.com/upollo/userwatch-go => ../../../client_libraries/server/go

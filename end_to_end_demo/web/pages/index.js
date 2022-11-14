@@ -3,19 +3,21 @@ import { Container, Grid } from "@material-ui/core";
 import { useTheme } from "@material-ui/core/styles";
 import useMediaQuery from "@material-ui/core/useMediaQuery";
 import AuthForm from "../components/auth_form";
+import { useRouter } from "next/router";
+import useLocalStorageState from "use-local-storage-state";
 
-import { EventType, UserInfo } from "@upollo/web";
+import { EventType } from "@upollo/web";
 
 const functionsBaseUrl = process.env.API_URL;
 
 export default function Home(props) {
-  const [userId, setUserId] = React.useState("");
+  const router = useRouter();
   const [deviceId, setDeviceId] = React.useState("");
+  const [userId, setUserId] = useLocalStorageState("userId");
+  const [companyName, setCompanyName] = useLocalStorageState("companyName");
 
-  const doAuthComplete = (userId, deviceId, register, naughty) => {
+  const doAuthComplete = (deviceId, register, upsell) => {
     var userInfo = { userId: userId };
-    props.upollo.track(userInfo, EventType.EVENT_TYPE_LOGIN_SUCCESS);
-    setUserId(userId);
     setDeviceId(deviceId);
     console.log(
       "Auth complete!\n" +
@@ -26,15 +28,28 @@ export default function Home(props) {
         deviceId +
         "\n" +
         (register ? "  register" : "  login") +
-        (naughty ? " naughty" : " nice")
+        "\n" +
+        (upsell ? " upsell" : " no upsell") +
+        "\n" +
+        "  company=" +
+        companyName +
+        "\n"
     );
-    let destination = "offer/";
-    if (register) {
-      destination += naughty ? "paid" : "free";
-    } else {
-      destination += naughty ? "team" : "success";
-    }
-    window.location.href += destination;
+
+    // Track the successful register/login event.
+    const eventType = register
+      ? EventType.EVENT_TYPE_REGISTER_SUCCESS
+      : EventType.EVENT_TYPE_LOGIN_SUCCESS;
+    props.upollo.track(userInfo, eventType).then(() => {
+      // Once the track call completes, navigate to the offer page.
+      let destination = "offer/";
+      if (register) {
+        destination += upsell ? "paid" : "free";
+      } else {
+        destination += upsell ? "team" : "success";
+      }
+      router.push(destination);
+    });
   };
 
   const theme = useTheme();

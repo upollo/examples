@@ -14,6 +14,8 @@ import { EmailInvalidReason, EventType } from "@upollo/web";
 
 import { BrandedHeader, WideRow } from "./helpers";
 
+import useLocalStorageState from "use-local-storage-state";
+
 export default function AuthForm(props) {
   const [register, setRegister] = React.useState(props.register);
   const [values, setValues] = React.useState({
@@ -30,16 +32,16 @@ export default function AuthForm(props) {
     "Choose something secure, but memorable"
   );
   const [waiting, setWaiting] = React.useState(false);
+  const [userId, setUserId] = useLocalStorageState("userId");
+  const [companyName, setCompanyName] = useLocalStorageState("companyName");
 
-  const handleChange = (prop) => (event) => {
-    setValues({ ...values, [prop]: event.target.value });
-    if (prop === "email" && register) {
-      if (event.target.value.length > 0) {
-        props.upollo.checkEmail(event.target.value).then((response) => {
-          if (
-            !response.valid &&
-            event.target.value.localeCompare(event.target.value) === 0
-          ) {
+  const handleEmailChange = (event) => {
+    const email = event.target.value.trim();
+    setValues({ ...values, ["email"]: email });
+    if (register) {
+      if (email.length > 0) {
+        props.upollo.checkEmail(email).then((response) => {
+          if (!response.valid && email.localeCompare(email) === 0) {
             setEmailValid(false);
             setEmailHelperText(
               "This email is not valid: " +
@@ -50,17 +52,29 @@ export default function AuthForm(props) {
           } else {
             setEmailValid(true);
             setEmailHelperText("Looks good!");
+            if (response.company && response.company.name) {
+              // Save the company name to the local storage so we can use
+              // it throughout the web app. For more company fields, see
+              // https://github.com/upollo/userwatch-proto/userwatch_public.proto
+              setCompanyName(response.company.name);
+            } else {
+              // Clear company name in case we have a new user.
+              setCompanyName(undefined);
+            }
           }
         });
       } else {
         setEmailHelperText("yourname@domain.com");
       }
-    } else if (prop === "password") {
-      props.upollo.checkPassword(event.target.value).then((response) => {
-        if (
-          response.compromised &&
-          event.target.value.localeCompare(event.target.value) === 0
-        ) {
+    }
+  };
+
+  const handlePasswordChange = (event) => {
+    const password = event.target.value;
+    setValues({ ...values, ["password"]: password });
+    if (register) {
+      props.upollo.checkPassword(password).then((response) => {
+        if (response.compromised && password.localeCompare(password) === 0) {
           setPasswordValid(false);
           setPasswordHelperText("This password has been leaked");
         } else {
@@ -90,25 +104,12 @@ export default function AuthForm(props) {
       ? EventType.EVENT_TYPE_REGISTER
       : EventType.EVENT_TYPE_LOGIN;
 
-    // You can pass userInfo such as userid, email and phone to the track function.
-    // Because we aren't logged in yet, we do not have knowledge of this so will send blank.
-
-    let userInfo = {};
-    if (values.email) {
-      const msgUint8 = new TextEncoder().encode(values.email); // encode as (utf-8) Uint8Array
-      const hashBuffer = await crypto.subtle.digest("SHA-256", msgUint8); // hash the message
-      const hashArray = Array.from(new Uint8Array(hashBuffer)); // convert buffer to byte array
-      const hashHex = hashArray
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join("");
-
-      userInfo = { userId: hashHex };
-    }
-
-    let upolloToken = await props.upollo.track(userInfo, eventType, true);
-    requestJson.upolloToken = upolloToken.eventToken;
-
-    requestJson.username = values.email;
+    // Track that the user is attempting to register or login.
+    // You can pass userInfo such as userid, username, email and phone to the track function.
+    let userInfo = { userEmail: values.email };
+    let response = await props.upollo.track(userInfo, eventType);
+    requestJson.eventToken = response.eventToken;
+    requestJson.userEmail = values.email;
     // Passwords aren't checked in this demo, so no point sending it
 
     fetch(props.baseURL + (register ? "register" : "login"), {
@@ -119,16 +120,15 @@ export default function AuthForm(props) {
       body: JSON.stringify(requestJson),
     })
       .then((response) => {
-        console.log(response);
         response.json().then(async (respJson) => {
-          // In all cases except account sharing, the status code is sufficient to know
-          // how legit the user is.
-          let naughty = response.status !== 200;
-          if (!register) {
-            naughty = naughty || respJson.accountSharing;
+          if (response.status !== 200) {
+            // Ideally we'd show an error message to the user.
+            console.log("Server returned an error.");
+            return;
           }
+          setUserId(respJson.userId);
           // Let whoever set up this auth form know the result
-          props.callback(respJson.userId, respJson.deviceId, register, naughty);
+          props.callback(respJson.deviceId, register, respJson.upsell);
         });
       })
       .finally(() => setWaiting(false));
@@ -184,7 +184,7 @@ export default function AuthForm(props) {
               label="Enter email address"
               id="email"
               value={values.email}
-              onChange={handleChange("email")}
+              onChange={handleEmailChange}
               helperText={emailHelperText}
               error={!emailValid}
             />
@@ -197,7 +197,7 @@ export default function AuthForm(props) {
               id="password"
               type={values.showPassword ? "text" : "password"}
               value={values.password}
-              onChange={handleChange("password")}
+              onChange={handlePasswordChange}
               helperText={
                 register ? (
                   passwordHelperText

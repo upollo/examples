@@ -1,4 +1,6 @@
-This demo contains and end-to-end web application that demonstrates how to use Upollo's APIs from a web client and backend server.
+This demo contains and end-to-end web application that demonstrates how you can use Upollo's client and server APIs to validate registrations and logins, distinguish genuine users from users attempting repeated free trials or sharing accounts, and then gracefully upsell where appropriate.
+
+The example consists of a web client and backend server. See [upollo.ai/docs/examples/end-to-end](https://upollo.ai/docs/examples/end-to-end) for a detailed explanation of how it works.
 
 ## Server
 
